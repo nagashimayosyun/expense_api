@@ -1,0 +1,59 @@
+<script>
+   // 新しい通知メッセージ表示関数
+function showNotification(message, isSuccess = true) {
+  const notification = document.getElementById('notification-message');
+  const icon = notification.querySelector('i');
+  const span = notification.querySelector('span');
+
+  if (!notification || !span || !icon) {
+      console.error("Notification elements not found.");
+      return;
+  }
+
+  span.textContent = message;
+  notification.style.backgroundColor = isSuccess ? '#4CAF50' : '#f44336';
+  icon.className = isSuccess ? 'fas fa-check-circle' : 'fas fa-exclamation-circle';
+
+  notification.classList.remove('notification-hidden');
+  notification.classList.add('notification-visible');
+
+  // 3秒後に自動的に非表示にする
+  setTimeout(() => {
+    notification.classList.remove('notification-visible');
+    notification.classList.add('notification-hidden');
+  }, 3000);
+}
+
+// サーバーサイド関数の実行失敗時に呼ばれる関数
+function onFailure(error) {
+  // エラーメッセージをコンソールに出力
+  console.error('サーバーサイド関数の実行に失敗しました:', error.message);
+  // ユーザーにエラー通知を表示
+  showNotification('処理中にエラーが発生しました。', false);
+}
+
+  function showLoading(overlayId, contentId) {
+    const loadingOverlay = document.getElementById(overlayId);
+    const content = document.getElementById(contentId);
+    if (loadingOverlay) {
+        loadingOverlay.style.display = 'flex';
+    }
+    if (content) {
+        content.classList.add('content-loading');
+    }
+  }
+
+  function hideLoading(overlayId, contentId) {
+    const loadingOverlay = document.getElementById(overlayId);
+    const content = document.getElementById(contentId);
+    if (loadingOverlay) {
+        loadingOverlay.style.display = 'none';
+    }
+    if (content) {
+        content.classList.remove('content-loading');
+    }
+  }
+
+</script>
+
+

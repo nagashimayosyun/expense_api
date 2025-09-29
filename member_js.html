@@ -1,0 +1,160 @@
+<script>
+// DOM要素の取得
+const addMemberBtn = document.getElementById('add-member-btn');
+const memberModal = document.getElementById('member-modal');
+const closeMemberModalBtn = document.getElementById('close-member-modal');
+const memberForm = document.getElementById('member-form');
+const memberTableBody = document.querySelector('#member-table tbody');
+
+// モーダルを開く
+function openMemberModal(member = null, index = null) {
+  if (member) {
+    // 編集モード
+    document.getElementById('member-modal-title').textContent = 'メンバー情報を編集';
+    document.getElementById('member-name-input').value = member.name;
+    document.getElementById('member-email-input').value = member.email;
+    document.getElementById('member-is-target').checked = member.isTarget;
+    document.getElementById('member-row-index').value = index;
+  } else {
+    // 新規登録モード
+    document.getElementById('member-modal-title').textContent = 'メンバーを登録';
+    memberForm.reset();
+    document.getElementById('member-row-index').value = '';
+  }
+  memberModal.style.display = 'flex';
+}
+
+// モーダルを閉じる
+function closeMemberModal() {
+  memberModal.style.display = 'none';
+}
+
+// イベントリスナー
+addMemberBtn.addEventListener('click', () => openMemberModal());
+closeMemberModalBtn.addEventListener('click', closeMemberModal);
+memberModal.addEventListener('click', (e) => {
+  if (e.target === memberModal) {
+    closeMemberModal();
+  }
+});
+memberForm.addEventListener('submit', handleMemberFormSubmit);
+
+// フォーム送信処理
+function handleMemberFormSubmit(e) {
+  e.preventDefault();
+  const name = document.getElementById('member-name-input').value;
+  const email = document.getElementById('member-email-input').value;
+  const isTarget = document.getElementById('member-is-target').checked;
+  const rowIndex = document.getElementById('member-row-index').value;
+
+  const memberData = { name, email, isTarget };
+
+  if (rowIndex) {
+    // 編集
+    google.script.run
+      .withSuccessHandler(onMemberSaveSuccess)
+      .withFailureHandler(onFailure) // ここで呼ばれる
+      .updateMember(rowIndex, memberData);
+  } else {
+    // 新規登録
+    google.script.run
+      .withSuccessHandler(onMemberSaveSuccess)
+      .withFailureHandler(onFailure) // ここで呼ばれる
+      .addMember(memberData);
+  }
+}
+
+// メンバー保存成功時のコールバック
+function onMemberSaveSuccess() {
+  closeMemberModal();
+  showNotification('メンバー情報が保存されました。');
+  // 名簿を再読み込み
+  loadMembers();
+}
+
+// 名簿テーブルをレンダリング
+function renderMemberTable(members) {
+  const memberTableBody = document.querySelector('#member-table tbody'); // DOM要素を関数内で取得
+  memberTableBody.innerHTML = ''; // 既存の内容をクリア
+
+  if (members && members.length > 0) {
+    members.forEach((member, index) => {
+      const row = memberTableBody.insertRow();
+
+    // member.isTarget が 1 または 0 になるため、== 1 で判定する
+    const isTargetText = (member.isTarget == 1) ? '対象' : '対象外';
+    
+    row.innerHTML = `
+      <td>${member.name}</td>
+      <td>${member.email}</td>
+      <td>${isTargetText}</td>
+        <td class="member-action-buttons">
+          <button class="button edit-button" data-index="${index}"><i class="fas fa-edit"></i></button>
+          <button class="button delete-button" data-index="${index}"><i class="fas fa-trash-alt"></i></button>
+        </td>
+      `;
+    });
+
+    // 編集・削除ボタンにイベントリスナーを設定
+    memberTableBody.querySelectorAll('.edit-button').forEach(button => {
+      button.addEventListener('click', (e) => {
+        // イベントが上位に伝播するのを防ぐ
+        e.stopPropagation();
+
+        const index = e.currentTarget.getAttribute('data-index');
+        // `getMembers`関数がメンバー情報の配列を返すと仮定
+        google.script.run
+          .withSuccessHandler(function(allMembers) {
+            openMemberModal(allMembers[index], index);
+          })
+          .withFailureHandler(onFailure)
+          .getMembers();
+      });
+    });
+
+    memberTableBody.querySelectorAll('.delete-button').forEach(button => {
+      button.addEventListener('click', (e) => {
+        // イベントが上位に伝播するのを防ぐ
+        e.stopPropagation();
+
+        const index = e.currentTarget.getAttribute('data-index');
+        
+        // 削除確認のための名前を取得するため、まずメンバーリストを再取得
+        google.script.run
+          .withSuccessHandler(function(allMembers) {
+            const memberName = allMembers[index].name;
+            if (confirm(`${memberName} を削除してもよろしいですか？`)) {
+              google.script.run
+                .withSuccessHandler(() => {
+                  showNotification('メンバーが削除されました。');
+                  loadMembers();
+                })
+                .withFailureHandler(onFailure)
+                .deleteMember(index);
+            }
+          })
+          .withFailureHandler(onFailure)
+          .getMembers();
+      });
+    });
+
+  } else {
+    memberTableBody.innerHTML = '<tr><td colspan="4" style="text-align:center;">名簿にメンバーがいません。</td></tr>';
+  }
+}
+
+// ページ読み込み時に名簿を読み込む
+function loadMembers() {
+  // ここでGASのサーバー関数を呼び出して名簿データを取得
+  google.script.run
+    .withSuccessHandler(renderMemberTable)
+    .withFailureHandler(onFailure) // ここで呼ばれる
+    .getMembers();
+}
+
+// ページ読み込み完了後に実行
+document.addEventListener('DOMContentLoaded', loadMembers);
+
+</script>
+
+

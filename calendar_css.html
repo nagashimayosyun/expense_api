@@ -1,0 +1,403 @@
+<style>
+/* === カレンダー関連 === */
+.calendar-section {
+  text-align: center;
+  padding-bottom: 2.5rem; 
+}
+
+/* 月ナビゲーションのラッパー共通スタイル */
+.month-navigation-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.6rem; 
+  margin-top: 1.5rem; 
+  width: 100%;
+  padding: 0 2.5rem; 
+  box-sizing: border-box;
+  z-index: 5; 
+  height: 1rem;
+}
+
+/* 経費一覧内の月ナビゲーションの調整 */
+.expense-list-month-nav {
+  margin-top: -1rem;
+  margin-bottom: 2rem;
+}
+
+/* 集計セクション内の月ナビゲーションのスタイル */
+.summary-month-nav {
+  margin-top: -1rem;
+  margin-bottom: 0.8rem;
+}
+
+
+/* ここからさらに大幅修正: 月表示のサイズを可能な限り縮小 */
+.current-month-display {
+  font-size: 1.5rem; /* 以前の1.2remから大幅に縮小 */
+  font-weight: 700;
+  color: var(--accent-color-dark);
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+
+.vanilla-calendar {
+  width: 100%;
+  max-width: unset;
+  border: none;
+  border-radius: var(--border-radius-lg);
+  box-shadow: none;
+  font-size: 1.1rem;
+  padding: 0;
+}
+
+/* ★★★ Vanilla Calendarのヘッダー部分のスタイル調整 ★★★ */
+.vanilla-calendar-header {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.6rem; 
+  margin-top: 1.5rem; 
+  width: 100%;
+  padding: 0 2.5rem; 
+  box-sizing: border-box;
+  z-index: 5; 
+  height: 1rem;
+  margin-bottom: 2rem;
+}
+
+/* Vanilla Calendarの矢印ボタンのスタイルをカスタムボタンに合わせる */
+/* ここからさらに大幅修正: Vanilla Calendarの矢印ボタンのサイズを可能な限り縮小 */
+.vanilla-calendar-header__arrow {
+  padding: 0.35rem 0.55rem; /* パディングをさらに縮小 */
+  font-size: 0.85rem; /* フォントサイズをさらに縮小 */
+  border-radius: 50%;
+  width: 2rem; /* 幅をさらに縮小 */
+  height: 2rem; /* 高さをさらに縮小 */
+  min-width: unset;
+  min-height: unset;
+  box-shadow: var(--shadow-light);
+  background: linear-gradient(45deg, var(--primary-color-light), var(--primary-color));
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.vanilla-calendar-header__arrow:hover {
+  background: linear-gradient(45deg, var(--primary-color), var(--primary-color-light));
+  transform: translateY(-0.1rem);
+  box-shadow: var(--shadow-medium);
+}
+.vanilla-calendar-header__arrow:active {
+  transform: translateY(0);
+  box-shadow: var(--shadow-light);
+}
+
+/* Vanilla Calendarの月と年の表示スタイルをカスタム表示に合わせる */
+/* ここからさらに大幅修正: 月と年の表示サイズを可能な限り縮小 */
+.vanilla-calendar-header__month,
+.vanilla-calendar-header__year {
+  font-size: 1rem; /* 以前の1.2remから大幅に縮小 */
+  font-weight: 700;
+  color: var(--accent-color-dark);
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+
+/* Vanilla Calendarのデフォルトの`<` `>`アイコンの調整 */
+.vanilla-calendar-header__arrow svg {
+  width: 1em;
+  height: 1em;
+}
+
+
+.vanilla-calendar__week-day {
+  color: var(--text-medium);
+  font-size: 1rem;
+  padding: 0.7rem 0;
+  font-weight: 500;
+  background-color: var(--bg-light);
+  border-bottom: 0.05rem solid var(--border-color);
+  border-top: 0.05rem solid var(--border-color);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.vanilla-calendar__dates { 
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.6rem;
+  margin-top: 0.8rem;
+  width: 100%;
+}
+
+/* カレンダーの日付セル内のFlexbox調整とmin-height変更 */
+/* ここからさらに修正: 日付セルの最小高さを調整 */
+[data-calendar-day] {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 0.5rem;
+  padding-bottom: 0;
+  position: relative;
+  overflow: hidden;
+  box-sizing: border-box;
+  background-color: #ffffff;
+  border: 0.08rem solid var(--border-color);
+  border-radius: var(--border-radius-sm);
+  box-shadow: 0 0.1rem 0.2rem rgba(0, 0, 0, 0.02);
+  transition: all 0.2s ease;
+  min-height: 5rem; /* 各日の最低高さを維持 */
+  flex: 1 1 auto;
+}
+
+/* 他の月の日のスタイル */
+.vanilla-calendar-day_prev, 
+.vanilla-calendar-day_next {
+  background-color: var(--bg-light) !important; 
+  border-color: var(--border-color) !important;
+  opacity: 0.7;
+}
+.vanilla-calendar-day_prev .vanilla-calendar-day__btn, 
+.vanilla-calendar-day_next .vanilla-calendar-day__btn {
+  color: var(--text-light) !important;
+}
+
+
+[data-calendar-day]:hover {
+  background-color: #f8fbfd;
+  border-color: #cce0ec;
+  box-shadow: 0 0.3rem 0.8rem rgba(0, 0, 0, 0.08);
+  transform: translateY(-2px);
+  cursor: pointer;
+}
+
+.vanilla-calendar-day_weekend:not(.vanilla-calendar-day_prev):not(.vanilla-calendar-day_next) {
+  background-color: #fcfcfc;
+}
+
+.vanilla-calendar-day_sunday:not(.vanilla-calendar-day_next):not(.vanilla-calendar-day_prev) {
+  background-color: #fffafa;
+  color: #d9534f;
+}
+
+.vanilla-calendar-day__btn {
+  font-size: 1.1rem;
+  display: flex;
+  align-items: center;
+  justify-content: start;
+  margin: 0.3rem auto 0.5rem auto;
+  background-color: transparent;
+  color: var(--text-dark);
+  border: none;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background-color 0.2s ease, color 0.2s ease;
+  flex-shrink: 0;
+  z-index: 2;
+}
+
+.vanilla-calendar-day__btn:hover:not(.vanilla-calendar-day__btn_prev):not(.vanilla-calendar-day__btn_next):not(.vanilla-calendar-day_today .vanilla-calendar-day__btn) {
+  background-color: #e6e6e6;
+}
+
+/* イベントタイトルとmore-eventsの配置と高さ調整 */
+/* ここからさらに修正: イベントタイトルの表示を調整 */
+.event-title {
+  font-size: 0.75rem; /* フォントサイズを維持 */
+  color: #4a4a4a;
+  background-color: #e8f5e9; 
+  border: 0.05rem solid #c8e6c9; 
+  padding: 0.2rem 0.4rem;
+  margin-top: 0.15rem;
+  width: calc(100% - 1rem);
+  white-space: normal;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: left;
+  line-height: 1.3; /* 行間を維持 */
+  max-height: 3.2rem; /* 2〜3行表示を維持 */
+  box-sizing: border-box;
+  border-radius: 0.25rem;
+  z-index: 1;
+  font-weight: 500;
+  flex-shrink: 0;
+  margin-bottom: 0.2rem;
+}
+
+/* ここからさらに修正: 「さらに表示」ボタンの表示を調整 */
+.more-events { 
+  font-size: 0.68rem; /* フォントサイズを維持 */
+  color: var(--primary-color-dark);
+  background-color: #dcedc8; 
+  border: 0.05rem solid #aed581;
+  font-weight: bold;
+  margin-top: 0.2rem;
+  padding: 0.15rem 0.4rem;
+  border-radius: 0.25rem;
+  width: calc(100% - 1rem);
+  text-align: center;
+  cursor: pointer;
+  transition: background-color 0.2s ease, transform 0.1s ease;
+  flex-shrink: 0;
+  margin-bottom: 0.2rem;
+}
+.more-events:hover {
+  background-color: #c5e1a5;
+  transform: translateY(-1px);
+}
+
+.event-day .vanilla-calendar-day__btn {
+  background-color: var(--primary-color-light) !important;
+  color: white !important;
+  border: 0.1rem solid var(--primary-color) !important;
+  font-weight: bold;
+}
+.vanilla-calendar-day_today .vanilla-calendar-day__btn {
+  background-color: var(--accent-color) !important;
+  color: white !important;
+  border: 0.1rem solid var(--accent-color-dark) !important;
+  font-weight: bold;
+}
+.vanilla-calendar-day_today.event-day .vanilla-calendar-day__btn {
+  background-color: var(--primary-color) !important;
+  border-color: var(--primary-color-dark) !important;
+}
+
+.vanilla-calendar-header .vanilla-calendar-month, 
+.vanilla-calendar-header .vanilla-calendar-year {
+  font-size: 1.8rem;
+    font-weight: 700;
+    color: var(--accent-color-dark);
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+}
+
+/* カレンダーセクションのテーマ */
+.calendar-section.theme-jan {
+    background-color: #e0f2f7; /* 薄い水色 */
+    /* background-image: url('path/to/snow-pattern.png'); */ /* 雪の結晶パターンなど */
+    /* background-size: cover; */
+}
+.calendar-section.theme-feb {
+    background-color: #fce4ec; /* 薄いピンク */
+    /* background-image: url('path/to/plum-blossom.png'); */ /* 梅のイラストなど */
+}
+.calendar-section.theme-mar {
+    background-color: #f1f8e9; /* 薄い緑 */
+    /* background-image: url('path/to/sakura-bud.png'); */ /* 桜のつぼみなど */
+}
+/* 他の月も同様に定義 */
+.calendar-section.theme-apr { background-color: #e8f5e9; } /* 桜色 */
+.calendar-section.theme-may { background-color: #f9fbe7; } /* 新緑色 */
+.calendar-section.theme-jun { background-color: #e3f2fd; } /* 紫陽花色 */
+.calendar-section.theme-jul { background-color: #e1f5fe; } /* 夏空色 */
+.calendar-section.theme-aug { background-color: #fffde7; } /* ひまわり色 */
+.calendar-section.theme-sep { background-color: #fbe9e7; } /* 秋の夕焼け色 */
+.calendar-section.theme-oct { background-color: #f3e5f5; } /* ハロウィン色 */
+.calendar-section.theme-nov { background-color: #ede7f6; } /* 落ち葉色 */
+.calendar-section.theme-dec { background-color: #fce4ec; } /* クリスマス色 */
+
+/* イベントタイトルの色もテーマに合わせる例 */
+.calendar-section.theme-jan .event-title {
+    background-color: #bbdefb; /* 淡い青 */
+    border-color: #90caf9;
+    color: #1a237e;
+}
+.calendar-section.theme-feb .event-title {
+    background-color: #f8bbd0; /* 少し濃いピンク */
+    border-color: #f48fb1;
+    color: #880e4f;
+}
+
+/* カレンダーセクションの月別テーマカラー */
+
+/* 1月: 薄い水色 */
+.calendar-section.theme-jan { background-color: #e0f2f7; }
+.calendar-section.theme-jan .vanilla-calendar-header__arrow { background: #81d4fa; }
+.calendar-section.theme-jan .vanilla-calendar-day__btn_selected { background-color: #81d4fa; }
+.calendar-section.theme-jan .vanilla-calendar-day_today .vanilla-calendar-day__btn { background-color: #03a9f4; }
+.calendar-section.theme-jan .event-title { background-color: #bbdefb; border-color: #90caf9; color: #1a237e; }
+
+/* 2月: 薄いピンク */
+.calendar-section.theme-feb { background-color: #fce4ec; }
+.calendar-section.theme-feb .vanilla-calendar-header__arrow { background: #f06292; }
+.calendar-section.theme-feb .vanilla-calendar-day__btn_selected { background-color: #f06292; }
+.calendar-section.theme-feb .vanilla-calendar-day_today .vanilla-calendar-day__btn { background-color: #e91e63; }
+.calendar-section.theme-feb .event-title { background-color: #f8bbd0; border-color: #f48fb1; color: #880e4f; }
+
+/* 3月: 薄い緑 */
+.calendar-section.theme-mar { background-color: #f1f8e9; }
+.calendar-section.theme-mar .vanilla-calendar-header__arrow { background: #aed581; }
+.calendar-section.theme-mar .vanilla-calendar-day__btn_selected { background-color: #aed581; }
+.calendar-section.theme-mar .vanilla-calendar-day_today .vanilla-calendar-day__btn { background-color: #8bc34a; }
+.calendar-section.theme-mar .event-title { background-color: #c5e1a5; border-color: #aed581; color: #558b2f; }
+
+/* 4月: 桜色 */
+.calendar-section.theme-apr { background-color: #fffde7; }
+.calendar-section.theme-apr .vanilla-calendar-header__arrow { background: #f48fb1; }
+.calendar-section.theme-apr .vanilla-calendar-day__btn_selected { background-color: #f48fb1; }
+.calendar-section.theme-apr .vanilla-calendar-day_today .vanilla-calendar-day__btn { background-color: #e91e63; }
+.calendar-section.theme-apr .event-title { background-color: #ffcdd2; border-color: #f48fb1; color: #c2185b; }
+
+/* 5月: 新緑色 */
+.calendar-section.theme-may { background-color: #e8f5e9; }
+.calendar-section.theme-may .vanilla-calendar-header__arrow { background: #81c784; }
+.calendar-section.theme-may .vanilla-calendar-day__btn_selected { background-color: #81c784; }
+.calendar-section.theme-may .vanilla-calendar-day_today .vanilla-calendar-day__btn { background-color: #4caf50; }
+.calendar-section.theme-may .event-title { background-color: #c8e6c9; border-color: #81c784; color: #2e7d32; }
+
+/* 6月: 紫陽花色 */
+.calendar-section.theme-jun { background-color: #e3f2fd; }
+.calendar-section.theme-jun .vanilla-calendar-header__arrow { background: #90caf9; }
+.calendar-section.theme-jun .vanilla-calendar-day__btn_selected { background-color: #90caf9; }
+.calendar-section.theme-jun .vanilla-calendar-day_today .vanilla-calendar-day__btn { background-color: #42a5f5; }
+.calendar-section.theme-jun .event-title { background-color: #bbdefb; border-color: #90caf9; color: #1565c0; }
+
+/* 7月: 夏空色 */
+.calendar-section.theme-jul { background-color: #e1f5fe; }
+.calendar-section.theme-jul .vanilla-calendar-header__arrow { background: #4fc3f7; }
+.calendar-section.theme-jul .vanilla-calendar-day__btn_selected { background-color: #4fc3f7; }
+.calendar-section.theme-jul .vanilla-calendar-day_today .vanilla-calendar-day__btn { background-color: #03a9f4; }
+.calendar-section.theme-jul .event-title { background-color: #81d4fa; border-color: #4fc3f7; color: #0277bd; }
+
+/* 8月: ひまわり色 */
+.calendar-section.theme-aug { background-color: #fffde7; }
+.calendar-section.theme-aug .vanilla-calendar-header__arrow { background: #ffca28; }
+.calendar-section.theme-aug .vanilla-calendar-day__btn_selected { background-color: #ffca28; }
+.calendar-section.theme-aug .vanilla-calendar-day_today .vanilla-calendar-day__btn { background-color: #ffc107; }
+.calendar-section.theme-aug .event-title { background-color: #fff59d; border-color: #ffca28; color: #ff8f00; }
+
+/* 9月: 秋の夕焼け色 */
+.calendar-section.theme-sep { background-color: #fbe9e7; }
+.calendar-section.theme-sep .vanilla-calendar-header__arrow { background: #ffab91; }
+.calendar-section.theme-sep .vanilla-calendar-day__btn_selected { background-color: #ffab91; }
+.calendar-section.theme-sep .vanilla-calendar-day_today .vanilla-calendar-day__btn { background-color: #ff8a65; }
+.calendar-section.theme-sep .event-title { background-color: #ffccbc; border-color: #ffab91; color: #d84315; }
+
+/* 10月: ハロウィン色 */
+.calendar-section.theme-oct { background-color: #f3e5f5; }
+.calendar-section.theme-oct .vanilla-calendar-header__arrow { background: #ba68c8; }
+.calendar-section.theme-oct .vanilla-calendar-day__btn_selected { background-color: #ba68c8; }
+.calendar-section.theme-oct .vanilla-calendar-day_today .vanilla-calendar-day__btn { background-color: #9c27b0; }
+.calendar-section.theme-oct .event-title { background-color: #e1bee7; border-color: #ba68c8; color: #7b1fa2; }
+
+/* 11月: 落ち葉色 */
+.calendar-section.theme-nov { background-color: #ede7f6; }
+.calendar-section.theme-nov .vanilla-calendar-header__arrow { background: #9575cd; }
+.calendar-section.theme-nov .vanilla-calendar-day__btn_selected { background-color: #9575cd; }
+.calendar-section.theme-nov .vanilla-calendar-day_today .vanilla-calendar-day__btn { background-color: #673ab7; }
+.calendar-section.theme-nov .event-title { background-color: #d1c4e9; border-color: #9575cd; color: #4527a0; }
+
+/* 12月: クリスマス色 */
+.calendar-section.theme-dec { background-color: #fce4ec; }
+.calendar-section.theme-dec .vanilla-calendar-header__arrow { background: #e57373; }
+.calendar-section.theme-dec .vanilla-calendar-day__btn_selected { background-color: #e57373; }
+.calendar-section.theme-dec .vanilla-calendar-day_today .vanilla-calendar-day__btn { background-color: #d32f2f; }
+.calendar-section.theme-dec .event-title { background-color: #ffcdd2; border-color: #e57373; color: #b71c1c; }
+
+</style>

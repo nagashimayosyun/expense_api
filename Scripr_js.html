@@ -1,0 +1,781 @@
+<script>
+  let allEvents = {};
+  let calendar;
+  // 各セクションが独立した月を管理
+  let calendarDisplayDate = new Date();
+  let expenseListDisplayDate = new Date(); // 経費一覧の表示月
+  let summaryDisplayDate = new Date();    // 集計の表示月
+
+  // 月ごとのテーマクラスを管理するための配列 (0: 1月, 1: 2月...)
+  const monthThemes = [
+      'theme-jan', 'theme-feb', 'theme-mar', 'theme-apr', 'theme-may', 'theme-jun',
+      'theme-jul', 'theme-aug', 'theme-sep', 'theme-oct', 'theme-nov', 'theme-dec'
+  ];
+
+  // グローバル変数で現在の選択されている経費タイプを保持
+  let currentSelectedExpenseType = '';
+
+window.onload = function () {
+  initializeCalendar(); // この関数内でテーマも適用される
+  loadAndDisplayEvents();
+  // 各セクションの初期表示月を現在の月で設定
+  updateMonthDisplay(expenseListDisplayDate, 'expenseListCurrentMonthDisplay');
+  updateMonthDisplay(summaryDisplayDate, 'summaryCurrentMonthDisplay');
+  updateAllMonthlyData(); // 初回データロード
+};
+
+  // 月表示更新のヘルパー関数
+  function updateMonthDisplay(dateObj, elementId) {
+      const year = dateObj.getFullYear();
+      const month = dateObj.getMonth() + 1;
+      document.getElementById(elementId).textContent = `${year}年${month}月`;
+  }
+
+  function applyCalendarTheme() {
+      const calendarSection = document.querySelector('.calendar-section');
+      if (!calendarSection) return;
+
+      // 現在の表示月を取得 (Vanilla CalendarのcurrentMonthは0-indexed)
+      const currentMonthIndex = calendar.currentMonth;
+
+      // 既存のテーマクラスをすべて削除
+      monthThemes.forEach(theme => {
+          calendarSection.classList.remove(theme);
+      });
+
+      // 新しいテーマクラスを追加
+      if (monthThemes[currentMonthIndex]) {
+          calendarSection.classList.add(monthThemes[currentMonthIndex]);
+      }
+  }
+
+function initializeCalendar() {
+  const calendarElement = document.getElementById('vanilla-calendar');
+  if (calendarElement) {
+    calendarElement.innerHTML = '';
+  }
+
+  calendar = new VanillaCalendar('#vanilla-calendar', {
+    settings: {
+      lang: 'ja',
+      selection: { day: 'single' },
+      popups: [],
+      current: new Date(calendarDisplayDate.getFullYear(), calendarDisplayDate.getMonth()),
+      visibility: {
+        header: true,
+      }
+    },
+    actions: {
+      clickArrow(event, self) {
+        calendarDisplayDate.setFullYear(self.currentYear, self.currentMonth, 1);
+        loadAndDisplayEvents();
+        // applyCalendarTheme(); // ← これを update に移す
+      },
+      clickMonth(event, self) {
+        calendarDisplayDate.setFullYear(self.currentYear, self.currentMonth, 1);
+        loadAndDisplayEvents();
+        // applyCalendarTheme(); // ← これを update に移す
+      },
+      clickYear(event, self) {
+        calendarDisplayDate.setFullYear(self.currentYear, self.currentMonth, 1);
+        loadAndDisplayEvents();
+        // applyCalendarTheme(); // ← これを update に移す
+      },
+      clickDay(event, self) {
+        const date = self.selectedDates[0];
+        showModal(date);
+      },
+      // 修正：update アクションを追加または既存のものを修正
+      update(event, self) {
+        calendarDisplayDate.setFullYear(self.currentYear, self.currentMonth, 1);
+        loadAndDisplayEvents();
+        applyCalendarTheme(); // ← ここに移動
+      }
+    }
+  });
+  calendar.init();
+  // applyCalendarTheme(); // ← 初回表示時も update が呼ばれるので不要になる
+}
+
+  /**
+   * イベントデータをロードし、カレンダーのハイライトを更新する。
+   * オプションでコールバック関数を渡すことで、データロード完了後の処理を指定できる。
+   * @param {function} [callback] データロード完了後に実行されるコールバック関数
+   */
+  function loadAndDisplayEvents() {
+    showLoading('loading-overlay', 'vanilla-calendar');
+    const calendarDays = document.querySelectorAll('#vanilla-calendar [data-calendar-day]');
+    calendarDays.forEach(cell => {
+        // 既存のイベント表示をクリア
+        cell.querySelectorAll('.event-title, .more-events').forEach(el => el.remove());
+        cell.classList.remove('event-day');
+    });
+
+    google.script.run.withSuccessHandler(function (loadedEvents) {
+      allEvents = {};
+      loadedEvents.forEach(event => {
+        const eventDateKey = event["日付"];
+        if (eventDateKey && event["タイトル"]) {
+          if (!allEvents[eventDateKey]) {
+            allEvents[eventDateKey] = [];
+          }
+          allEvents[eventDateKey].push({ title: event["タイトル"], note: event["メモ"] || "" });
+        } else {
+          console.warn("Invalid event data skipped:", event);
+        }
+      });
+      updateCalendarHighlights(loadedEvents);
+      hideLoading('loading-overlay', 'vanilla-calendar');
+
+applyCalendarTheme();
+
+    }).withFailureHandler(function (error) {
+      console.error("イベント読み込み失敗 (初回表示):", error);
+      alert("イベントの読み込みに失敗しました: " + error.message);
+      hideLoading('loading-overlay', 'vanilla-calendar');
+
+applyCalendarTheme();
+
+    }).loadEvents();
+  }
+
+  function showModal(date) {
+    const modal = document.getElementById("event-modal");
+    const modalTitle = document.getElementById("modal-title");
+    const eventList = document.getElementById("event-list");
+
+    modalTitle.textContent = `${date} の予定一覧`;
+    const todaysEvents = allEvents[date] || [];
+    eventList.innerHTML = "";
+
+    if (todaysEvents.length === 0) {
+      eventList.innerHTML = "<li><i class='fas fa-info-circle icon-left'></i>予定はありません。</li>";
+    } else {
+      todaysEvents.forEach((event, index) => {
+        const li = document.createElement("li");
+        li.innerHTML = `
+            <span>${event.title} — ${event.note}</span>
+            <button data-event-date="${date}" data-event-title="${event.title}" data-event-note="${event.note}" class="button delete-button"><i class="fas fa-trash-alt"></i></button>
+        `;
+        eventList.appendChild(li);
+      });
+    }
+    document.getElementById("new-event-title").value = "";
+    document.getElementById("new-event-note").value = "";
+    modal.style.display = "flex";
+  }
+
+  document.getElementById("add-event-btn").onclick = () => {
+    const title = document.getElementById("new-event-title").value.trim();
+    const note = document.getElementById("new-event-note").value.trim();
+
+    if (!title) {
+      alert("予定タイトルを入力してください");
+      return;
+    }
+
+    let currentDate = calendar.selectedDates && calendar.selectedDates.length > 0
+                                ? calendar.selectedDates[0]
+                                : new Date().toISOString().slice(0, 10);
+
+    if (!currentDate) {
+      alert("日付が選択されていません。カレンダーから日付を選択してください。");
+      return;
+    }
+
+    if (allEvents[currentDate] && allEvents[currentDate].some(e => e.title === title)) {
+      alert("同じタイトルの予定がすでに存在します");
+      return;
+    }
+
+    google.script.run
+      .withFailureHandler(err => {
+        console.error("イベント保存失敗:", err);
+        alert("イベントの追加に失敗しました: " + err.message);
+      })
+      .withSuccessHandler(() => {
+        showNotification("イベントが追加されました！");
+        loadAndDisplayEvents(() => {
+            showModal(currentDate);
+        });
+      })
+      .saveEvent(currentDate, title, note);
+  };
+
+  document.getElementById("event-list").addEventListener('click', (e) => {
+    if (e.target.tagName === 'BUTTON' && e.target.classList.contains('delete-button')) { // クラス名で判断
+        const btn = e.target;
+        const date = btn.dataset.eventDate;
+        const title = btn.dataset.eventTitle;
+        const note = btn.dataset.eventNote;
+
+        if (confirm('本当にこのイベントを削除しますか？')) {
+            google.script.run
+                .withSuccessHandler(() => {
+                    showNotification("イベントが削除されました。");
+                    loadAndDisplayEvents(() => {
+                        showModal(date);
+                    });
+                })
+                .withFailureHandler(err => {
+                    console.error("イベント削除失敗:", err);
+                    alert("イベントの削除に失敗しました: " + err.message);
+                })
+                .deleteEvent(date, title, note);
+        }
+    }
+  });
+
+  document.getElementById("close-modal").onclick = () => {
+    document.getElementById("event-modal").style.display = "none";
+    loadAndDisplayEvents();
+  };
+
+  function updateCalendarHighlights() {
+    const calendarDays = document.querySelectorAll('#vanilla-calendar [data-calendar-day]');
+    calendarDays.forEach(cell => {
+        // 既存のイベント表示をクリア
+        cell.querySelectorAll('.event-title, .more-events').forEach(el => el.remove());
+        cell.classList.remove('event-day');
+
+        const dateAttr = cell.getAttribute('data-calendar-day');
+        if (dateAttr) {
+          const todaysEvents = allEvents[dateAttr];
+
+          if (todaysEvents && todaysEvents.length > 0) {
+            const maxDisplay = 2; // 表示するイベントタイトルの最大数
+
+            cell.classList.add('event-day');
+            
+            const displayEvents = todaysEvents.slice(0, maxDisplay);
+            // 日付ボタンの直後にイベントタイトルを追加
+            displayEvents.forEach(event => {
+                const div = document.createElement("div");
+                div.textContent = event.title;
+                div.classList.add("event-title");
+                cell.appendChild(div);
+            });
+
+
+            if (todaysEvents.length > maxDisplay) {
+              const moreDiv = document.createElement("div");
+              moreDiv.textContent = `+${todaysEvents.length - maxDisplay}件`;
+              moreDiv.classList.add("more-events");
+              moreDiv.dataset.date = dateAttr;
+              cell.appendChild(moreDiv);
+            }
+          }
+        }
+    });
+  }
+
+
+  function updateAllMonthlyData() {
+    // 経費一覧と集計で共通の年月を使用する
+    // updateAllMonthlyDataは、expenseListDisplayDateの状態を基準にしてGASを呼び出す
+    const currentYear = expenseListDisplayDate.getFullYear();
+    const currentMonth = expenseListDisplayDate.getMonth() + 1;
+
+    showLoading('data-loading-overlay', 'data-container');
+    showLoading('summary-loading-overlay', 'summary-container');
+
+    google.script.run
+        .withSuccessHandler(function (jsonStringResponse) {
+            let response;
+            try {
+                response = JSON.parse(jsonStringResponse);
+            } catch (e) {
+                console.error("JSONパースエラー (getMonthlyDataAndSummary):", e);
+                document.getElementById("no-data-message").textContent = "データの読み込み中にエラーが発生しました。（データ形式エラー）\n" + e.message;
+                document.getElementById("no-data-message").style.display = "block";
+                document.getElementById("summary-text-container").textContent = "集計データの読み込み中にエラーが発生しました。\n" + e.message;
+                const unsubmittedListContainer = document.getElementById('unsubmitted-list-container');
+                unsubmittedListContainer.innerHTML = '<p style="color:red;">未提出者リストの読み込み中にエラーが発生しました。</p>'; 
+                hideLoading('data-loading-overlay', 'data-container');
+                hideLoading('summary-loading-overlay', 'summary-container');
+                return;
+            }
+
+            // 経費一覧のデータを処理 
+            const data = response.expenseData ? response.expenseData.data : []; // `data` を currentMonthData に変更
+            const headers = response.expenseData ? response.expenseData.headers : [];
+            const thead = document.querySelector("#data-table thead");
+            const tbody = document.querySelector("#data-table tbody");
+            const toggleBtn = document.getElementById("toggle-data-btn");
+            const noDataMessage = document.getElementById("no-data-message");
+
+            thead.innerHTML = "";
+            tbody.innerHTML = "";
+            noDataMessage.style.display = "none";
+            toggleBtn.innerHTML = '<i class="fas fa-chevron-circle-down icon-left"></i>さらに表示 ▼';
+            toggleBtn.style.display = "none";
+
+            if (headers && Array.isArray(headers)) {
+                const tr = document.createElement("tr");
+                headers.forEach(headerText => {
+                    const th = document.createElement("th");
+                    th.textContent = headerText;
+                    tr.appendChild(th);
+                });
+                const actionsTh = document.createElement("th");
+                actionsTh.textContent = "操作";
+                tr.appendChild(actionsTh);
+                thead.appendChild(tr);
+            }
+
+            if (data && Array.isArray(data) && data.length > 0) {
+                const fragment = document.createDocumentFragment();
+                for (let i = 0; i < data.length; i++) {
+                    const row = data[i];
+                    // row がオブジェクトになったので、headers を渡す必要はない
+                    const tr = createTableRow(row, headers); // headers も渡すことで、順序を保証
+                    if (i >= 5) { // 6件目以降は隠す
+                        tr.classList.add("hidden-row");
+                    }
+                    fragment.appendChild(tr);
+                }
+                tbody.appendChild(fragment);
+
+                if (data.length > 5) {
+                    toggleBtn.style.display = "block"; // 6件以上ならボタン表示
+                }
+                document.getElementById("data-container").style.display = "block";
+            } else {
+                document.getElementById("data-container").style.display = "block";
+                noDataMessage.style.display = "block";
+            }
+            hideLoading('data-loading-overlay', 'data-container');
+
+            // 集計データを処理 
+            const summaryText = response.summaryText || "この月はまだ経費データがありません。"; 
+            document.getElementById("summary-text-container").textContent = summaryText; 
+            document.getElementById("summary-container").style.display = "block"; 
+            
+            // 未提出者リストの表示ロジック
+            const unsubmittedListContainer = document.getElementById('unsubmitted-list-container');
+            unsubmittedListContainer.innerHTML = ''; // 既存の内容をクリア
+
+            if (response.unsubmittedList && response.unsubmittedList.length > 0) {
+                const title = document.createElement('h3');
+                title.classList.add('section-title-sub'); // スタイルを合わせる
+                title.innerHTML = '<i class="fas fa-question-circle icon-left"></i>【確認中】';
+                unsubmittedListContainer.appendChild(title);
+
+                const ul = document.createElement('ul');
+                ul.style.listStyle = 'none'; // リストのスタイルを解除（CSSで調整）
+                ul.style.paddingLeft = '0'; // 左の余白をなくす
+
+                response.unsubmittedList.forEach(name => {
+                    const li = document.createElement('li');
+                    li.textContent = name;
+                    li.style.marginBottom = '5px'; // 各名前の下に少し余白
+                    ul.appendChild(li);
+                });
+                unsubmittedListContainer.appendChild(ul);
+            } else {
+                const p = document.createElement('p');
+                p.innerHTML = '<i class="fas fa-check-circle icon-left"></i>今月フォームを送信していない集計対象者はいません。';
+                unsubmittedListContainer.appendChild(p);
+            }
+
+            hideLoading('summary-loading-overlay', 'summary-container');
+        }) 
+        .withFailureHandler(function (error) {
+            console.error("データの読み込みスクリプトエラー:", error);
+            document.getElementById("no-data-message").textContent = "<i class='fas fa-exclamation-triangle icon-left'></i>経費データの読み込み中にエラーが発生しました。\n" + error.message;
+            document.getElementById("no-data-message").style.display = "block";
+            document.getElementById("summary-text-container").textContent = "集計データの表示中にエラーが発生しました。\n" + error.message;
+            const unsubmittedListContainer = document.getElementById('unsubmitted-list-container');
+            unsubmittedListContainer.innerHTML = '<p style="color:red;">未提出者リストの読み込み中にエラーが発生しました。</p>';
+
+            hideLoading('data-loading-overlay', 'data-container');
+            hideLoading('summary-loading-overlay', 'summary-container');
+        })
+        .getMonthlyDataAndSummary(currentYear, currentMonth);
+    
+    // 各月の表示を更新（ここはそのまま）
+    updateMonthDisplay(expenseListDisplayDate, 'expenseListCurrentMonthDisplay');
+    updateMonthDisplay(summaryDisplayDate, 'summaryCurrentMonthDisplay');
+  } 
+
+// **修正箇所①：formattedTimestampの値を確実に設定する**
+function createTableRow(rowData, headers) {
+    const tr = document.createElement("tr");
+    headers.forEach(header => {
+        const td = document.createElement("td");
+        let cellValue = rowData[header];
+        td.textContent = cellValue;
+        td.setAttribute('data-header', header);
+        tr.appendChild(td);
+    });
+
+    const actionsTd = document.createElement("td");
+
+    // タイムスタンプの存在チェックをより堅牢に
+    const formattedTimestamp = rowData && rowData["タイムスタンプ"] ? rowData["タイムスタンプ"] : "";
+
+    const deleteBtn = document.createElement("button");
+    deleteBtn.innerHTML = '<i class="fas fa-trash-alt"></i>';
+    deleteBtn.classList.add("button", "delete-button");
+    deleteBtn.setAttribute("data-timestamp", formattedTimestamp);
+    actionsTd.appendChild(deleteBtn);
+
+    const editBtn = document.createElement("button");
+    editBtn.innerHTML = '<i class="fas fa-edit"></i>';
+    editBtn.classList.add("button", "edit-button");
+    editBtn.setAttribute("data-timestamp", formattedTimestamp);
+    actionsTd.appendChild(editBtn);
+
+    tr.appendChild(actionsTd);
+    return tr;
+}
+
+  // 経費一覧の月ナビゲーションボタン
+  document.getElementById('expenseListPrevMonth').addEventListener('click', function () {
+    expenseListDisplayDate.setMonth(expenseListDisplayDate.getMonth() - 1);
+    expenseListDisplayDate.setDate(1); // 日を1日に設定して月を正確に合わせる
+    // 集計セクションの表示月も経費一覧に合わせる
+    summaryDisplayDate.setFullYear(expenseListDisplayDate.getFullYear(),                  expenseListDisplayDate.getMonth(), 1);
+    updateAllMonthlyData();
+  });
+
+  document.getElementById('expenseListNextMonth').addEventListener('click', function () {
+    expenseListDisplayDate.setMonth(expenseListDisplayDate.getMonth() + 1);
+    expenseListDisplayDate.setDate(1); // 日を1日に設定して月を正確に合わせる
+    // 集計セクションの表示月も経費一覧に合わせる
+    summaryDisplayDate.setFullYear(expenseListDisplayDate.getFullYear(), expenseListDisplayDate.getMonth(), 1);
+    updateAllMonthlyData();
+  });
+
+  // 集計セクションの月ナビゲーションボタン
+  document.getElementById('summaryPrevMonth').addEventListener('click', function () {
+    summaryDisplayDate.setMonth(summaryDisplayDate.getMonth() - 1);
+    summaryDisplayDate.setDate(1); // 日を1日に設定して月を正確に合わせる
+    // 経費一覧セクションの表示月も集計に合わせる
+    expenseListDisplayDate.setFullYear(summaryDisplayDate.getFullYear(), summaryDisplayDate.getMonth(), 1);
+    updateAllMonthlyData();
+  });
+
+  document.getElementById('summaryNextMonth').addEventListener('click', function () {
+    summaryDisplayDate.setMonth(summaryDisplayDate.getMonth() + 1);
+    summaryDisplayDate.setDate(1); // 日を1日に設定して月を正確に合わせる
+    // 経費一覧セクションの表示月も集計に合わせる
+    expenseListDisplayDate.setFullYear(summaryDisplayDate.getFullYear(), summaryDisplayDate.getMonth(), 1);
+    updateAllMonthlyData();
+  });
+
+
+  document.getElementById('toggle-data-btn').addEventListener('click', function () {
+    const hiddenRows = document.querySelectorAll("#data-table .hidden-row");
+    const toggleBtn = document.getElementById("toggle-data-btn");
+    
+    if (!hiddenRows || hiddenRows.length === 0) {
+      console.log("No hidden rows found or data table is empty.");
+      toggleBtn.style.display = "none";
+      return;
+    }
+
+    let isHidden = hiddenRows[0].style.display === "none" || hiddenRows[0].style.display === "";
+    
+    hiddenRows.forEach(row => {
+      row.style.display = isHidden ? "table-row" : "none";
+    });
+    toggleBtn.innerHTML = isHidden ? '<i class="fas fa-chevron-circle-up icon-left"></i>閉じる ▲' : '<i class="fas fa-chevron-circle-down icon-left"></i>さらに表示 ▼';
+  });
+
+document.addEventListener('click', function(event) {
+    let targetElement = event.target;
+    // .buttonクラスを持つ要素まで親をたどる
+    while (targetElement != null && !targetElement.classList.contains('button')) {
+        targetElement = targetElement.parentElement;
+    }
+
+    if (targetElement) {
+        // ★修正点：経費一覧のボタンにのみ存在する `data-timestamp` 属性をチェックする
+        const hasTimestamp = targetElement.hasAttribute('data-timestamp');
+
+        if (hasTimestamp && targetElement.classList.contains('delete-button')) {
+            const timestampToDelete = targetElement.getAttribute('data-timestamp');
+            handleDeleteButtonClick(timestampToDelete);
+        } else if (hasTimestamp && targetElement.classList.contains('edit-button')) {
+            const timestampToEdit = targetElement.getAttribute('data-timestamp');
+            console.log("Edit button clicked. Timestamp:", timestampToEdit);
+            if (timestampToEdit) {
+                openEditModal(timestampToEdit);
+            } else {
+                alert("修正するレコードのタイムスタンプが取得できませんでした。");
+                console.error("Error: timestampToEdit is undefined for edit button.");
+            }
+        }
+        // カレンダーのボタンにはこの条件が満たされないため、経費の削除処理は実行されなくなります
+    }
+});
+
+// 削除処理を担うヘルパー関数
+function handleDeleteButtonClick(timestampToDelete) {
+    if (!timestampToDelete || timestampToDelete === "null") {
+        alert("削除するレコードのタイムスタンプが取得できませんでした。");
+        console.error("Error: Invalid timestamp for deletion.");
+        return;
+    }
+
+    if (confirm(`本当にこの申請を削除しますか？`)) {
+        google.script.run
+            .withSuccessHandler(function() {
+                showNotification("削除しました。");
+                updateAllMonthlyData();
+                loadAndDisplayEvents();
+            })
+            .withFailureHandler(function(error) {
+                alert("削除に失敗しました: " + error.message);
+                console.error("削除エラー:", error);
+            })
+            .deleteExpenseRecord(timestampToDelete);
+    }
+}
+
+// **修正箇所②：getSingleExpenseRecordへの引数の渡し方を修正**
+function openEditModal(timestamp) {
+    const editModal = document.getElementById('edit-expense-modal');
+    const editForm = document.getElementById('edit-expense-form');
+    editForm.reset();
+    document.getElementById("edit-timestamp-hidden").value = timestamp;
+    console.log("JS: getSingleExpenseRecordに渡すタイムスタンプ ->", timestamp);
+
+    // タイムスタンプが有効かチェック
+    if (!timestamp || timestamp === "null") {
+        alert("修正するレコードのタイムスタンプが取得できませんでした。");
+        console.error("Error: Invalid timestamp provided to openEditModal.");
+        return;
+    }
+
+    google.script.run
+        .withSuccessHandler(function(recordData) {
+            if (recordData) {
+                document.querySelectorAll('input[name="edit-expense-type"]').forEach(checkbox => {
+                    checkbox.checked = false;
+                });
+                const expenseTypes = recordData["経費区分"].split(',');
+                expenseTypes.forEach(type => {
+                    const checkbox = document.querySelector(`input[name="edit-expense-type"][value="${type.trim()}"]`);
+                    if (checkbox) {
+                        checkbox.checked = true;
+                    }
+                });
+                document.getElementById('edit-remarks').value = recordData['備考'] || '';
+                document.getElementById('edit-email').value = recordData['メールアドレス'] || '';
+                editModal.style.display = "flex";
+            } else {
+                alert("レコードが見つかりませんでした。");
+                showNotification("レコードが見つかりませんでした。", false);
+            }
+        })
+        .withFailureHandler(function(error) {
+            console.error("修正するデータの取得に失敗しました:", error);
+            alert("修正するデータの取得に失敗しました: " + error.message);
+            showNotification("データの取得に失敗しました。", false);
+        })
+        // 引数を直接渡す
+        .getSingleExpenseRecord(timestamp);
+}
+    
+    document.getElementById('close-edit-modal').addEventListener('click', function() {
+    document.getElementById('edit-expense-modal').style.display = 'none';
+    document.getElementById('edit-expense-form').reset();
+    updateAllMonthlyData();
+  });
+
+    document.getElementById('cancel-edit-btn').addEventListener('click', function() {
+    document.getElementById('edit-expense-modal').style.display = 'none';
+    document.getElementById('edit-expense-form').reset();
+    updateAllMonthlyData();
+  });
+
+
+document.getElementById('edit-expense-form').addEventListener('submit', function(event) {
+  event.preventDefault();
+
+    const timestampToUpdate = document.getElementById("edit-timestamp-hidden").value;
+
+    const updatedData = {
+      "経費区分": Array.from(document.querySelectorAll('input[name="edit-expense-type"]:checked'))
+                              .map(cb => cb.value)
+                              .join(','),
+      "備考": document.getElementById("edit-remarks").value,
+      "メールアドレス": document.getElementById("edit-email").value,
+    };
+
+    if (!timestampToUpdate) {
+      alert("レコードの識別情報が見つかりません。");
+      return;
+    }
+
+    google.script.run
+      .withSuccessHandler(function() {
+        showNotification("レコードを更新しました。");
+        document.getElementById('edit-expense-modal').style.display = 'none';
+        document.getElementById('edit-expense-form').reset();
+        updateAllMonthlyData(); // 更新成功時にデータ再更新
+        loadAndDisplayEvents(); // イベントも更新される可能性があるので再ロード
+      })
+      .withFailureHandler(function(error) {
+        alert("レコードの更新に失敗しました: " + error.message);
+        console.error("更新エラー:", error);
+      })
+      .updateExpenseRecord(timestampToUpdate, updatedData);
+  });
+
+// --- 新しい経費申請ボタンの処理 (修正ここから) ---
+document.querySelectorAll('.expense-type-btn').forEach(button => {
+    button.addEventListener('click', function() {
+        // 選択された経費タイプを直接取得
+        const expenseType = this.dataset.expenseType;
+        const remarks = ''; // 備考は空文字列として送信
+
+        showLoading('expense-input-loading-overlay', 'expense-input-section'); // ローディング表示
+        
+        google.script.run
+            .withSuccessHandler(function(response) {
+                let parsedResponse;
+                try {
+                    parsedResponse = JSON.parse(response);
+                } catch (e) {
+                    // JSONパースに失敗した場合、成功メッセージとして扱う（矛盾なしの場合）
+                    parsedResponse = response;
+                }
+
+                if (typeof parsedResponse === 'object' && parsedResponse.status === 'conflict') {
+                    // 矛盾する申請があった場合の処理
+                    hideLoading('expense-input-loading-overlay', 'expense-input-section');
+                    if (confirm(parsedResponse.message)) {
+                        // OKが押された場合、削除して再申請
+                        showLoading('expense-input-loading-overlay', 'expense-input-section');
+                        google.script.run
+                            .withSuccessHandler(function(finalResponse) {
+                                showNotification(`申請を修正しました！ (区分: ${expenseType})`); //
+                                hideLoading('expense-input-loading-overlay', 'expense-input-section');
+                                updateExpenseTableAndSummary(finalResponse);
+                            })
+                            .withFailureHandler(function(error) {
+                                alert("経費の申請に失敗しました: " + error.message);
+                                console.error("経費申請エラー:", error);
+                                hideLoading('expense-input-loading-overlay', 'expense-input-section');
+                            })
+                            .deleteAndRecordExpense(parsedResponse.timestampsToDelete, expenseType, remarks);
+                    }
+                } else {
+                    // 矛盾がない場合の通常の処理
+                    showNotification(`申請しました！ (区分: ${expenseType})`); //
+                    hideLoading('expense-input-loading-overlay', 'expense-input-section');
+                    updateExpenseTableAndSummary(response);
+                }
+            })
+            .withFailureHandler(function(error) {
+                alert("経費の申請に失敗しました: " + error.message);
+                console.error("経費申請エラー:", error);
+                hideLoading('expense-input-loading-overlay', 'expense-input-section');
+            })
+            .recordExpenseFromClick(expenseType, remarks);
+    });
+});
+
+  document.getElementById('close-remarks-modal').addEventListener('click', function() {
+      document.getElementById('remarks-modal').style.display = 'none';
+  });
+
+  document.getElementById('cancel-remarks-btn').addEventListener('click', function() {
+      document.getElementById('remarks-modal').style.display = 'none';
+  });
+
+  // updateAllMonthlyData() の結果を処理する新しい関数
+  function updateExpenseTableAndSummary(response) {
+      let parsedResponse;
+      try {
+          parsedResponse = JSON.parse(response);
+      } catch (e) {
+          console.error("JSONパースエラー (updateExpenseTableAndSummary):", e);
+          return;
+      }
+
+      // 経費一覧のデータを処理
+      const data = parsedResponse.expenseData ? parsedResponse.expenseData.data : [];
+      const headers = parsedResponse.expenseData ? parsedResponse.expenseData.headers : [];
+      const thead = document.querySelector("#data-table thead");
+      const tbody = document.querySelector("#data-table tbody");
+      const toggleBtn = document.getElementById("toggle-data-btn");
+      const noDataMessage = document.getElementById("no-data-message");
+
+      thead.innerHTML = "";
+      tbody.innerHTML = "";
+      noDataMessage.style.display = "none";
+      toggleBtn.innerHTML = '<i class="fas fa-chevron-circle-down icon-left"></i>さらに表示 ▼';
+      toggleBtn.style.display = "none";
+
+      if (headers && Array.isArray(headers)) {
+          const tr = document.createElement("tr");
+          headers.forEach(headerText => {
+              const th = document.createElement("th");
+              th.textContent = headerText;
+              tr.appendChild(th);
+          });
+          const actionsTh = document.createElement("th");
+          actionsTh.textContent = "操作";
+          tr.appendChild(actionsTh);
+          thead.appendChild(tr);
+      }
+
+      if (data && Array.isArray(data) && data.length > 0) {
+          const fragment = document.createDocumentFragment();
+          for (let i = 0; i < data.length; i++) {
+              const row = data[i];
+              const tr = createTableRow(row, headers);
+              if (i >= 5) {
+                  tr.classList.add("hidden-row");
+              }
+              fragment.appendChild(tr);
+          }
+          tbody.appendChild(fragment);
+
+          if (data.length > 5) {
+              toggleBtn.style.display = "block";
+          }
+          document.getElementById("data-container").style.display = "block";
+      } else {
+          document.getElementById("data-container").style.display = "block";
+          noDataMessage.style.display = "block";
+      }
+
+      // 集計データを処理
+      const summaryText = parsedResponse.summaryText || "この月はまだ経費データがありません。";
+      document.getElementById("summary-text-container").textContent = summaryText;
+      document.getElementById("summary-container").style.display = "block";
+      
+      // 未提出者リストの表示ロジック
+      const unsubmittedListContainer = document.getElementById('unsubmitted-list-container');
+      unsubmittedListContainer.innerHTML = '';
+
+      if (parsedResponse.unsubmittedList && parsedResponse.unsubmittedList.length > 0) {
+          const title = document.createElement('h3');
+          title.classList.add('section-title-sub');
+          title.innerHTML = '<i class="fas fa-question-circle icon-left"></i>今月まだフォームを送信していない対象者（確認中リスト）';
+          unsubmittedListContainer.appendChild(title);
+
+          const ul = document.createElement('ul');
+          ul.style.listStyle = 'none';
+          ul.style.paddingLeft = '0';
+
+          parsedResponse.unsubmittedList.forEach(name => {
+              const li = document.createElement('li');
+              li.textContent = name;
+              li.style.marginBottom = '5px';
+              ul.appendChild(li);
+          });
+          unsubmittedListContainer.appendChild(ul);
+      } else {
+          const p = document.createElement('p');
+          p.innerHTML = '<i class="fas fa-check-circle icon-left"></i>今月フォームを送信していない集計対象者はいません。';
+          unsubmittedListContainer.appendChild(p);
+      }
+  }
+
+</script>

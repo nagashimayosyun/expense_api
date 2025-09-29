@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <title>2Sol経費精算区分集計掲示板</title>
+
+  <?!= include('vanilla_calendar_light_css.html'); ?>
+  <?!= include('vanilla_calendar_css.html'); ?>
+  <?!= include('vanilla_calendar_js.html'); ?>
+  <?!= include('style.html'); ?>
+  <?!= include('calendar_css.html'); ?>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+</head>
+
+<body>
+  <div class="site-wrapper">
+    <?!= include('header.html'); ?>
+
+    <main class="main-content">
+      <section class="card expense-input-section">
+        <h2 class="section-title"><i class="fas fa-hand-holding-usd icon-left"></i>経費申請（クリック入力）</h2>
+        <p class="section-description">今月の経費区分を以下から選択してください。</p>
+        <div class="expense-buttons-container">
+          <button class="button expense-type-btn primary-button" data-expense-type="通常立替">
+            <i class="fas fa-money-bill-wave icon-left"></i> 通常立替
+          </button>
+          <button class="button expense-type-btn info-button" data-expense-type="客先立替">
+            <i class="fas fa-building icon-left"></i> 客先立替
+          </button>
+          <button class="button expense-type-btn secondary-button" data-expense-type="立替なし">
+            <i class="fas fa-minus-circle icon-left"></i> 立替なし
+          </button>
+        </div>
+        <div id="expense-input-loading-overlay" class="loading-overlay-common" style="display:none;">
+          <p><i class="fas fa-spinner fa-spin icon-left"></i>申請を処理中...</p>
+        </div>
+      </section>
+
+      <section class="card calendar-section">
+        <h2 class="section-title"><i class="far fa-calendar-alt icon-left"></i>イベントカレンダー</h2>
+        <div id="vanilla-calendar"></div>
+        <div id="loading-overlay" class="loading-overlay-common" style="display:none;">
+            <p><i class="fas fa-spinner fa-spin icon-left"></i>イベントを読み込み中...</p>
+        </div>
+        <div id="event-modal" style="display:none;" class="modal">
+          <div class="modal-content">
+            <span id="close-modal" class="close">&times;</span>
+            <h2 id="modal-title">予定一覧</h2>
+            <ul id="event-list"></ul>
+
+            <h3>新しい予定を追加</h3>
+            <input type="text" id="new-event-title" placeholder="予定タイトル">
+            <textarea id="new-event-note" placeholder="メモ (任意)"></textarea><br>
+            <button id="add-event-btn" class="button primary-button"><i class="fas fa-plus-circle icon-left"></i>追加</button>
+
+          </div>
+        </div>
+      </section>
+
+      <div id="notification-message" class="notification-hidden">
+        <i class="fas fa-check-circle"></i> <span></span>
+      </div>
+      
+      <section id="summary-container" class="card summary-section">
+        <h2 class="section-title-sub"><i class="fas fa-chart-pie icon-left"></i>経費区分別集計</h2>
+        <div class="month-navigation-wrapper summary-month-nav">
+            <button id="summaryPrevMonth" class="button nav-button"><i class="fas fa-chevron-left"></i></button>
+            <span id="summaryCurrentMonthDisplay" class="current-month-display"></span>
+            <button id="summaryNextMonth" class="button nav-button"><i class="fas fa-chevron-right"></i></button>
+        </div>
+        <pre id="summary-text-container"></pre>
+
+        <div id="unsubmitted-list-container" class="unsubmitted-list-container">
+        </div>
+
+        <div id="summary-loading-overlay" class="loading-overlay-common" style="display:none;">
+            <p><i class="fas fa-spinner fa-spin icon-left"></i>集計データを読み込み中...</p>
+        </div>
+      </section>
+
+      <section id="data-container" class="card expense-list-section">
+        <h2 class="section-title"><i class="fas fa-list-alt icon-left"></i>経費一覧</h2>
+        <div class="month-navigation-wrapper expense-list-month-nav">
+            <button id="expenseListPrevMonth" class="button nav-button"><i class="fas fa-chevron-left"></i></button>
+            <span id="expenseListCurrentMonthDisplay" class="current-month-display"></span>
+            <button id="expenseListNextMonth" class="button nav-button"><i class="fas fa-chevron-right"></i></button>
+        </div>
+        <table id="data-table">
+          <thead></thead>
+          <tbody>
+          </tbody>
+        </table>
+
+        <div class="toggle-button-container">
+            <button id="toggle-data-btn" class="button toggle-button" style="display:none;"><i class="fas fa-chevron-circle-down icon-left"></i>さらに表示 ▼</button>
+        </div>
+
+        <p id="no-data-message" style="display:none; text-align: center; padding: 20px;"><i class="fas fa-info-circle icon-left"></i>この月にはデータがありません。</p>
+        
+        <div id="data-loading-overlay" class="loading-overlay-common" style="display:none;">
+            <p><i class="fas fa-spinner fa-spin icon-left"></i>経費データを読み込み中...</p>
+        </div>
+
+      </section>
+
+      <section id="storage-container" class="card storage-section">
+        <h2 class="section-title"><i class="fas fa-folder-open icon-left"></i>経費立替格納先</h2>
+        <p>上記申請フォームで、【通常立替】【客先立替】がある方は、下記格納先へ申請書も格納してください。<br>
+          ※社内Googleアカウントのログインが必要です。</p>
+        <div class="storage-location">
+          <ul>
+            <li><a href="https://drive.google.com/drive/folders/1uEd7l4gh-Z1Lm0KMyzQh0kSL73CDMKts" class="button storage-button" target="_blank"><i class="fab fa-google-drive icon-left"></i>通常立替</a></li>
+            <li><a href="https://drive.google.com/drive/folders/1uJCX93oSQ7jtTVVjfcG5gdr_lLB143aE" class="button storage-button" target="_blank"><i class="fab fa-google-drive icon-left"></i>客先立替</a></li>
+          </ul>
+        </div>
+      </section>
+
+      <div id="edit-expense-modal" style="display:none;" class="modal">
+        <div class="modal-content">
+          <span id="close-edit-modal" class="close">&times;</span>
+          <h2 class="section-title">経費レコードの修正</h2>
+          <form id="edit-expense-form">
+            <input type="hidden" id="edit-timestamp-hidden">
+            
+            <label class="form-label">経費区分:</label>
+            <div class="checkbox-group">
+                <input type="checkbox" id="edit-expense-type-normal" name="edit-expense-type" value="通常立替">
+                <label for="edit-expense-type-normal">通常立替</label><br>
+
+                <input type="checkbox" id="edit-expense-type-client" name="edit-expense-type" value="客先立替">
+                <label for="edit-expense-type-client">客先立替</label><br>
+
+                <input type="checkbox" id="edit-expense-type-none" name="edit-expense-type" value="立替なし">
+                <label for="edit-expense-type-none">立替なし</label>
+            </div>
+            
+            <label for="edit-remarks" class="form-label">備考:</label>
+            <textarea id="edit-remarks"></textarea><br>
+
+            <label for="edit-email" class="form-label">メールアドレス:</label>
+            <input type="email" id="edit-email" required><br>
+            
+            <div class="modal-buttons">
+                <button type="submit" id="save-edited-expense-btn" class="button primary-button"><i class="fas fa-save icon-left"></i>保存</button>
+                <button type="button" id="cancel-edit-btn" class="button secondary-button"><i class="fas fa-times-circle icon-left"></i>キャンセル</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <div id="remarks-modal" style="display:none;" class="modal">
+          <div class="modal-content">
+              <span id="close-remarks-modal" class="close">&times;</span>
+              <h2 class="section-title">備考を入力（任意）</h2>
+              <textarea id="remarks-input" placeholder="例：取引先とのランチ代、交通費など"></textarea><br>
+              <div class="modal-buttons">
+                  <button id="submit-expense-btn" class="button primary-button"><i class="fas fa-check-circle icon-left"></i>確定</button>
+                  <button id="cancel-remarks-btn" class="button secondary-button"><i class="fas fa-times-circle icon-left"></i>キャンセル</button>
+              </div>
+          </div>
+      </div>
+
+<div id="member-modal" style="display:none;" class="modal">
+  <div class="modal-content">
+    <span id="close-member-modal" class="close">&times;</span>
+    <h2 id="member-modal-title" class="section-title">メンバー登録・編集</h2>
+    <form id="member-form">
+      <input type="hidden" id="member-row-index"> <label for="member-name-input" class="form-label">名前:</label>
+      <input type="text" id="member-name-input" required>
+      
+      <label for="member-email-input" class="form-label">メールアドレス:</label>
+      <input type="email" id="member-email-input" required>
+      
+      <label class="form-label">対象フラグ:</label>
+      <div class="checkbox-group">
+        <input type="checkbox" id="member-is-target" name="is-target">
+        <label for="member-is-target">集計対象に含める</label>
+      </div>
+      
+      <div class="modal-buttons">
+        <button type="submit" id="save-member-btn" class="button primary-button"><i class="fas fa-save icon-left"></i>保存</button>
+        <button type="button" id="cancel-member-btn" class="button secondary-button"><i class="fas fa-times-circle icon-left"></i>キャンセル</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+
+    </main>
+
+    <?!= include('footer.html'); ?>
+  </div>
+  <?!= include('Script_js.html'); ?> 
+  <?!= include('kyoutsu_js.html'); ?> 
+</body> 
+</html>

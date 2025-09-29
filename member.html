@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <title>2Solメンバー管理</title>
+
+  <?!= include('style.html'); ?>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+</head>
+
+<body>
+  <div class="site-wrapper">
+    <?!= include('header.html'); ?>
+
+    <main class="main-content">
+           
+      <div id="notification-message" class="notification-hidden">
+        <i class="fas fa-check-circle"></i> <span></span>
+      </div>
+
+
+    <section id="member-management-container" class="card member-management-section">
+      <h2 class="section-title"><i class="fas fa-users-cog icon-left"></i>名簿管理</h2>
+      <div class="member-actions">
+      <button id="add-member-btn" class="button primary-button"><i class="fas fa-user-plus icon-left"></i>メンバーを追加</button>
+      </div>
+        <table id="member-table">
+          <thead>
+            <tr>
+              <th>名前</th>
+              <th>メールアドレス</th>
+              <th>対象</th>
+              <th>アクション</th>
+            </tr>
+          </thead>
+      <tbody>
+      </tbody>
+      </table>
+</section>
+
+<div id="member-modal" style="display:none;" class="modal">
+  <div class="modal-content">
+    <span id="close-member-modal" class="close">&times;</span>
+    <h2 id="member-modal-title" class="section-title">メンバー登録・編集</h2>
+    <form id="member-form">
+      <input type="hidden" id="member-row-index"> <label for="member-name-input" class="form-label">名前:</label>
+      <input type="text" id="member-name-input" required>
+      
+      <label for="member-email-input" class="form-label">メールアドレス:</label>
+      <input type="email" id="member-email-input" required>
+      
+      <label class="form-label">対象フラグ:</label>
+      <div class="checkbox-group">
+        <input type="checkbox" id="member-is-target" name="is-target">
+        <label for="member-is-target">集計対象に含める</label>
+      </div>
+      
+      <div class="modal-buttons">
+        <button type="submit" id="save-member-btn" class="button primary-button"><i class="fas fa-save icon-left"></i>保存</button>
+        <button type="button" id="cancel-member-btn" class="button secondary-button"><i class="fas fa-times-circle icon-left"></i>キャンセル</button>
+      </div>
+    </form>
+  </div>
+</div>
+</main>
+
+    <?!= include('footer.html'); ?>
+  </div>
+  <?!= include('member_js.html'); ?>
+  <?!= include('kyoutsu_js.html'); ?>  
+</body> 
+</html>
